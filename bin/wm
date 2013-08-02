@@ -34,7 +34,7 @@ class MyWM < WM::EllipseWM
     STATUS = "#{ENV['HOME']}/.mywm_status.txt"
     
     # overide to update the status file
-    # dzen2 status tool @ /path/to/wm/scripts/statusbar.rb (requires xdotool, dzen2 and i3status)
+    # dzen2 status tool @ /path/to/RaWM/scripts/statusbar.rb (requires xdotool, dzen2 and i3status)
     def focus
       super
       
@@ -42,6 +42,23 @@ class MyWM < WM::EllipseWM
         f.puts "#{window.id}"
       end
     end
+  end
+  
+  def manage_existing(*o)
+    super
+    at_startup()
+  end
+  
+  def at_startup()
+    STARTUP.each do |t|
+      send *t
+    end
+  end
+  
+  STARTUP = []
+  
+  def self.add_startup_task *task
+    STARTUP << task
   end
     
   #
@@ -61,6 +78,11 @@ begin
 
   Signal.trap("INT") do
     m.on_abort(1)
+  end
+  
+  if ARGV[0] == "--status"
+    path = File.expand_path(File.join(File.dirname(__FILE__),"..","scripts","statusbar.rb"))
+    MyWM.add_startup_task :spawn,"ruby #{path}"
   end
 
   m.main
