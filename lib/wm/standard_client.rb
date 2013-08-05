@@ -51,9 +51,18 @@ module WM
       end
       
       def focus()
+        WM::log :info do
+          "in focus(), #{get_window.id} for #{window.id}, #{`xdotool getwindowname #{window.id}`.strip}"
+        end
+      
         a = [get_window()]
-        #transients.each do |t| a << t end
         a.last.focus()
+      end
+      
+      def take_pointer()
+        x,y = rect[2..3].map do |qc| qc * 0.5 end
+        XCB::warp_pointer(manager.connection, XCB::NONE, get_window.id, 0, 0, 0, 0, x, y); 
+        XCB::flush manager.connection
       end
       
       def set_rect *o

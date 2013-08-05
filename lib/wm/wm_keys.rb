@@ -11,6 +11,15 @@ module WM
     return pair[1]
   end
   
+  def KeyMap.find_symbol_for(int)
+    pair = find do |k,v|
+      v == int
+    end
+    
+    return unless pair
+    return pair[0]
+  end
+  
   KeyMap[:F1]        = 67
   KeyMap[:F2]        = 68
   KeyMap[:F3]        = 69
@@ -56,8 +65,9 @@ module WM
   KeyMap[:Up]        = 111
   KeyMap[:Down]      = 116
 
-  KeyMap[:AltCtrl]   = XCB::MOD_MASK_1 | XCB::MOD_MASK_CONTROL
-  KeyMap[:AltShift]  = XCB::MOD_MASK_1 | XCB::MOD_MASK_SHIFT
-  KeyMap[:Alt]       = XCB::MOD_MASK_1
-  KeyMap[:Ctrl]      = XCB::MOD_MASK_CONTROL
+  KeyMap[:AltCtrl]    = XCB::MOD_MASK_1 | XCB::MOD_MASK_CONTROL
+  KeyMap[:AltShift]   = XCB::MOD_MASK_1 | XCB::MOD_MASK_SHIFT
+  KeyMap[:Alt]        = XCB::MOD_MASK_1
+  KeyMap[:Ctrl]       = XCB::MOD_MASK_CONTROL
+  KeyMap[:CtrlShift]  = XCB::MOD_MASK_CONTROL | XCB::MOD_MASK_SHIFT
 end

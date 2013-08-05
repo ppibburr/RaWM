@@ -103,6 +103,11 @@ module WM
       if bool
         # The 'master' is removed
         # default tiling is performed
+        
+        WM::log :debug do
+          "in unmanage(), master removed"
+        end
+        
         @active = nil
         draw()
       else
@@ -133,8 +138,7 @@ module WM
         c.raise 
         c.focus
         
-        x,y = c.rect[2..3].map do |q| q * 0.5 end
-        XCB::warp_pointer(connection, XCB::NONE, c.get_window.id, 0, 0, 0, 0, x, y);          
+        c.take_pointer()
       end
     end
     
@@ -145,22 +149,18 @@ module WM
     
       if c=get_focused_client()
         if c == @active
-          c = clients.find do |q|
-            q != c
+          unless c = clients.find do |q| q != c end
+            # we allow this cuz sometimes bugs happen
+            c = @active
           end
-        
-        # we allow this cuz sometimes bugs happen
-        else
-          c = @active
         end
         
         set_active(c) unless c.get_transient_for()
+        
         @active.raise()
         @active.focus()
         
-        x,y = @active.rect[2..3].map do |q| q * 0.5 end
-        XCB::warp_pointer(connection, 0, @active.get_window.id, 0,0,0,0,x,y);
-        XCB::flush connection
+        @active.take_pointer()
       end
     end
     
@@ -178,8 +178,9 @@ module WM
           return if sc == c
           
           swap c,sc
-          x,y = c.rect[2..3].map do |q| q * 0.5 end
-          XCB::warp_pointer(connection, XCB::NONE, c.get_window.id, 0, 0, 0, 0, x, y);
+          
+          
+          c.take_pointer()
         end
       end
     end
@@ -198,9 +199,9 @@ module WM
           return if sc == c
           
           swap c,sc
-          x,y = c.rect[2..3].map do |q| q * 0.5 end
-          XCB::warp_pointer(connection, XCB::NONE, c.get_window.id, 0, 0, 0, 0, x, y);          
-        end
+          
+          c.take_pointer()
+       end
       end
     end
    
@@ -223,8 +224,7 @@ module WM
         q.raise()
         q.focus()
         
-        x,y = q.rect[2..3].map do |qc| qc * 0.5 end
-        XCB::warp_pointer(connection, XCB::NONE, q.get_window.id, 0, 0, 0, 0, x, y);                  
+        q.take_pointer()
       end
     end        
     
@@ -247,9 +247,18 @@ module WM
         q.raise()
         q.focus()
         
-        x,y = q.rect[2..3].map do |qc| qc * 0.5 end
-        XCB::warp_pointer(connection, XCB::NONE, q.get_window.id, 0, 0, 0, 0, x, y);                  
+        q.take_pointer()
+     end
+    end
+    
+    def on_key_press e
+      WM::log :debug do
+        m = KeyMap.find_symbol_for(e[:state])
+        k = KeyMap.find_symbol_for(e[:detail])
+        "in on_key_press(), modifier->#{m}, key->#{k}"  
       end
+      
+      super
     end
     
     # Gets the client at point x,y
@@ -308,6 +317,10 @@ module WM
       # no need to continue
       return if o == @active 
       
+      WM::log :debug do
+        "In set_active()"
+      end
+      
       # remove the focus hint from the previous 'master'
       if o
         o.remove_active_hint()
@@ -329,8 +342,14 @@ module WM
     # and sets it's rect an increment of the ellipse
     #
     # @param WM::Client a, the client to be the 'master', defaults to newest managed client
-    def draw a = clients.last
+    def draw a = nil
+      bool = !!a
+      a = a ? a : clients.last
       return unless a
+      
+      WM.log :debug do
+        "In draw(), #{bool ? "using last client" : "using the passed client"}"
+      end
       
       if c=a.get_transient_for
         a = c

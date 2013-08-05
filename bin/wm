@@ -14,6 +14,11 @@ require File.expand_path(File.join(File.dirname(__FILE__),"..","lib","wm.rb"))
 require File.expand_path(File.join(File.dirname(__FILE__),"..","lib","wm","fx_fade.rb"))
 
 class MyWM < WM::EllipseWM
+  # enable some common debug utils
+  # ie, swap_alt_ctrl, keybinds with ALT mask become CTRL mask
+  # usefull in Xnest or Xephyr
+  extend WM::DebugWM
+  
   class self::Client < WM::EllipseWM::Client
     # Blue looks nice
     BORDER = WM::BLUE # the focused window border color
@@ -77,9 +82,25 @@ class MyWM < WM::EllipseWM
 end
 
 begin
+  if ARGV.index('--debug')
+    WM::LOG.level = Logger::DEBUG
+  else
+    WM::LOG.level = Logger::INFO
+  end
+  
+  if ARGV.index('--swap-alt-ctrl')
+    MyWM.swap_alt_ctrl()
+  end
+
   # Use the arrow instead of the X
   MyWM::add_startup_task :spawn,"xsetroot -cursor_name  left_ptr"
-
+  
+  # Set a background
+  MyWM::add_startup_task :spawn,"feh --bg-scale /home/ppibburr/el6.png"
+  
+  # Start the composition manager
+  MyWM::add_startup_task :spawn,"compton -cCfF"
+  
   m = MyWM.new(WM::SCREEN,WM::CONNECTION)
 
   Signal.trap("INT") do

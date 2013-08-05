@@ -70,3 +70,32 @@ module WM
   SCREEN = screen(CONNECTION,screen_n)
 end
 
+require 'logger'
+
+class MultiDelegator
+  def initialize(*targets)
+    @targets = targets
+  end
+
+  def self.delegate(*methods)
+    methods.each do |m|
+      define_method(m) do |*args|
+        @targets.map { |t| t.send(m, *args) }
+      end
+    end
+    self
+  end
+
+  class <<self
+    alias to new
+  end
+end
+
+log_file = File.open(File.join(File.dirname(__FILE__),"..","..","debug.log"), "a")
+WM::LOG = Logger.new MultiDelegator.delegate(:write, :close).to(STDOUT, log_file)
+WM::LOG.level = Logger::DEBUG
+
+def WM.log level,*o,&b
+  WM::LOG.send level,*o,&b
+end
+
