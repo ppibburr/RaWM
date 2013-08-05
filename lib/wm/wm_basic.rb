@@ -1,29 +1,45 @@
 require File.expand_path(File.join(File.dirname(__FILE__),"wm_client.rb"))
 
 module WM
-  KeyMods = {
-    # Mod (Mod1 == alt) (Mod4 == Super/windows) 
-    :MOD1            => XCB::MOD_MASK_1,
-    :MOD4		     => XCB::MOD_MASK_4,
-    :AltShift        => XCB::MOD_MASK_1 | XCB::MOD_MASK_SHIFT,   # 
-    :AltCtrl         => XCB::MOD_MASK_1 | XCB::MOD_MASK_CONTROL, # 
-    :Control         => XCB::MOD_MASK_CONTROL                    #
-  }
+  class KeyBindingStore < Hash
+    def add_key_binding mod,key,*o
+      unless mod = sym2int(mod)  
+        raise "KeyConversionError: Can not convert #{mod} to Integer"
+      end
+      
+      unless key = sym2int(key)
+        raise "KeyConversionError: Can not convert #{key} to Integer"      
+      end
+      
+      m = self[mod] ||= {}
+      m[key] = o
+    end
+    
+    def sym2int q
+      unless q.is_a?(Integer)
+        return WM::KeyMap.find_by_symbol(q)
+      end     
+      
+      return q
+    end     
+    
+    def [] m
+      if has_key?(m)
+        return super
+      end
+      
+      self[m] = {}
+    end 
+  end
   
   class Manager
-    GrabKeys = []
+    MANAGER_REPARENTING  = 0 # Will create a parent window for managed windows
+    MANAGER_NON_REPARENT = 1 # ...
     
-    def self.add_key_binding(mod,sym,action,*o)
-      GrabKeys << [mod,sym,action].push(*o)
-    end
-  
-    attr_accessor :clients,:screen,:connection
-    def initialize screen,conn
-      @screen = screen
-      @connection = conn
-      @clients = []
-    end
+    # What type of manager are we ...
+    MANAGE_MODE = MANAGER_NON_REPARENT
     
+    # Events mask for the root window
     ROOT_WINDOW_EVENT_MASK = XCB::EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB::EVENT_MASK_SUBSTRUCTURE_NOTIFY |
                                         XCB::EVENT_MASK_ENTER_WINDOW |
                                         XCB::EVENT_MASK_LEAVE_WINDOW |
@@ -31,13 +47,45 @@ module WM
                                         XCB::EVENT_MASK_BUTTON_PRESS |
                                         XCB::EVENT_MASK_BUTTON_RELEASE | 
                                         XCB::EVENT_MASK_FOCUS_CHANGE |
-                                        XCB::EVENT_MASK_PROPERTY_CHANGE  
+                                        XCB::EVENT_MASK_PROPERTY_CHANGE      
+        
+    def self.client_class
+      self::Client
+    end
+    
+    # @return Array<Integer>, window id's currently existing
+    def self.list_windows(conn,screen)
+      tree_c = XCB::query_tree_unchecked(conn,
+                    screen[:root]);
+
+      tree_r = XCB::query_tree_reply(conn,
+                    tree_c,
+                    nil);
+
+      # # Get the tree of the children windows of the current root window */
+      if(!(wins = XCB::query_tree_children(tree_r)))
+        printf("cannot get tree children");
+        raise 
+      end
+
+      tree_c_len = XCB::query_tree_children_length(tree_r);
+      wins.read_array_of_int(tree_c_len)
+    end     
+  
+    attr_accessor :clients,:screen,:connection
+    def initialize screen,conn
+      @screen = screen
+      @connection = conn
+      
+      @clients = []
+      @key_bindings = KeyBindingStore.new
+    end
     
     # Apply attributes to the 'root' window to get events rolling 
     def init
       window_root = screen[:root];
-      mask = XCB::CW_EVENT_MASK;
-      values= ary2pary([ ROOT_WINDOW_EVENT_MASK]);
+      mask        = XCB::CW_EVENT_MASK;
+      values      = ary2pary([ ROOT_WINDOW_EVENT_MASK]);
      
       cookie = XCB::change_window_attributes_checked(connection, window_root, mask, values);
       error = XCB::request_check(connection, cookie);
@@ -48,6 +96,14 @@ module WM
       end
        
       manage_existing()  
+      
+      @key_bindings.each_pair do |mod,v|
+        v.each_pair do |key,vv|        
+          XCB::grab_key(connection, 1, screen[:root], mod, key, XCB::GRAB_MODE_ASYNC, XCB::GRAB_MODE_ASYNC);
+        end
+      end
+      
+      XCB::flush connection      
     end
     
     ABORT = {0=>"Manager Running",1=>"SIGINT recieved",2=>"EVENT LOOP Error"}
@@ -76,16 +132,6 @@ module WM
         exit(1)      
       end
     end
-    
-    def self.client_class
-      self::Client
-    end
-    
-    MANAGER_REPARENTING  = 0 # Will create a parent window for managed windows
-    MANAGER_NON_REPARENT = 1 # ...
-    
-    # What type of manager are we ...
-    MANAGE_MODE = MANAGER_NON_REPARENT
     
     # @return true, if reparenting
     def is_reparenting?
@@ -171,18 +217,11 @@ module WM
     def unmanage(w)
       c = find_client_by_window w
       c.destroy() if c
-    end   
-    
-    def on_key_press(e)
-      GrabKeys.each do |q|
-        if q[0] == e[:state] and q[1] == e[:detail]
-          send q[2] if q.length == 3
-          send q[2],*q[3..q.length-1] if q.length > 3
-        end
-      end
-      
-      return e
     end
+    
+    def add_key_binding m,k,*o
+      @key_bindings.add_key_binding m,k,*o
+    end    
     
     # call init()
     # Loop over events and handle them
@@ -191,77 +230,79 @@ module WM
     
       loop do
         while (evt=XCB::wait_for_event(connection)).to_ptr != FFI::Pointer::NULL;
-          next unless on_before_event(evt)
-          q = evt[:response_type] & ~0x80
-          p q unless [6,12,34].index(q)
-          case evt[:response_type] & ~0x80
-          when 2
-            evt = XCB::KEY_PRESS_EVENT_T.new(evt.to_ptr)
-            on_key_press(evt)
-          when 7
-            evt = XCB::ENTER_NOTIFY_EVENT_T.new(evt.to_ptr)
-        
-            if c = find_client_by_window(evt[:event])
-              c.on_enter(evt)
-            end
-          when 8
-            evt = XCB::ENTER_NOTIFY_EVENT_T.new(evt.to_ptr)
-        
-            if c = find_client_by_window(evt[:event])
-              c.on_leave(evt)
-            end 
-          when 10
-
-          when 18
-            puts "GOT UNMAP _NOTIFY"
-            evt = XCB::UNMAP_NOTIFY_EVENT_T.new(evt.to_ptr)
-          
-            if c = find_client_by_window(evt[:window])
-              c.on_unmap_notify(evt)
-            end
-          when 22
-            evt = XCB::CONFIGURE_NOTIFY_EVENT_T.new(evt.to_ptr)
-                    
-            if c = find_client_by_window(evt[:event])
-              c.on_configure_notify(evt)
-            end 
-          when 23
-            evt = XCB::CONFIGURE_REQUEST_EVENT_T.new(evt.to_ptr)
-              
-            if c = find_client_by_window(evt[:window])
-              c.on_configure_request(evt)
-            end       
-          when XCB::MAP_REQUEST
-            evt = XCB::MAP_REQUEST_EVENT_T.new(evt.to_ptr)
-        
-            if c = find_client_by_window(evt[:window])
-              c.on_map_request(evt)
-            else 
-              manage(evt[:window]) 
-            end   
-          when XCB::CLIENT_MESSAGE 
-            evt = XCB::CLIENT_MESSAGE_EVENT_T.new(evt.to_ptr)
-
-          when XCB::DESTROY_NOTIFY
-            puts "GOT DESTROY"
-            evt = XCB::DESTROY_NOTIFY_EVENT_T.new(evt.to_ptr)
-
-            unmanage(evt[:event])  
-          end
-              
-          on_after_event(evt)
-        
-          CLib::free evt.to_ptr 
-          XCB::flush(connection)  
-
-          Thread.pass
+          handle_event(evt)
         end
-        Thread.pass
-    end
+      end
       
     rescue => e
       on_abort(2,e)
     end
+    
+    def handle_event evt
+	  return unless on_before_event(evt)
+	  
+	  case evt[:response_type] & ~0x80
+	  when XCB::KEY_PRESS
+		evt = XCB::KEY_PRESS_EVENT_T.new(evt.to_ptr)
+		on_key_press(evt)
+		
+	  when XCB::KEY_RELEASE
+		evt = XCB::KEY_RELEASE_EVENT_T.new(evt.to_ptr)
+		on_key_release(evt)	
+		
+	  when XCB::BUTTON_PRESS
+		evt = XCB::BUTTON_PRESS_EVENT_T.new(evt.to_ptr)
+		on_button_press(evt)
+		
+	  when XCB::BUTTON_RELEASE
+		evt = XCB::BUTTON_RELEASE_EVENT_T.new(evt.to_ptr)
+		on_button_release(evt)				
+		
+	  when XCB::ENTER_NOTIFY
+		evt = XCB::ENTER_NOTIFY_EVENT_T.new(evt.to_ptr)
+	
+        on_enter_notify(evt)
+		
+	  when XCB::LEAVE_NOTIFY
+		evt = XCB::LEAVE_NOTIFY_EVENT_T.new(evt.to_ptr)
+	
+        on_leave_notify(evt)
+
+	  when XCB::UNMAP_NOTIFY
+		evt = XCB::UNMAP_NOTIFY_EVENT_T.new(evt.to_ptr)
+	  
+        on_unmap_notify(evt)
+		
+	  when XCB::CONFIGURE_NOTIFY
+		evt = XCB::CONFIGURE_NOTIFY_EVENT_T.new(evt.to_ptr)
+				
+		on_configure_notify(evt)
+		 
+	  when XCB::CONFIGURE_REQUEST
+		evt = XCB::CONFIGURE_REQUEST_EVENT_T.new(evt.to_ptr)
+		  
+		on_configure_request(evt)
+		       
+	  when XCB::MAP_REQUEST
+		evt = XCB::MAP_REQUEST_EVENT_T.new(evt.to_ptr)
+	
+		on_map_request(evt)
+		   
+	  when XCB::CLIENT_MESSAGE 
+		evt = XCB::CLIENT_MESSAGE_EVENT_T.new(evt.to_ptr)
+        on_client_message(evt)
+        
+	  when XCB::DESTROY_NOTIFY
+		evt = XCB::DESTROY_NOTIFY_EVENT_T.new(evt.to_ptr)
+
+		on_destroy_notify(evt)  
+	  end
+		  
+	  on_after_event(evt)
+	
+	  CLib::free evt.to_ptr 
+	  XCB::flush(connection)    
+    end    
     
     # Called before default event handling
     # When overiding, all return values except false,nil
@@ -279,24 +320,83 @@ module WM
     
     end
     
-    # @return Array<Integer>, window id's currently existing
-    def self.list_windows(conn,screen)
-      tree_c = XCB::query_tree_unchecked(conn,
-                    screen[:root]);
-
-      tree_r = XCB::query_tree_reply(conn,
-                    tree_c,
-                    nil);
-
-      # # Get the tree of the children windows of the current root window */
-      if(!(wins = XCB::query_tree_children(tree_r)))
-        printf("cannot get tree children");
-        raise 
-      end
-
-      tree_c_len = XCB::query_tree_children_length(tree_r);
-      wins.read_array_of_int(tree_c_len)
-    end
+    #
+    # Events.
+    # Overide these.
+    #
+    
+	def on_key_press e
+	  @key_bindings.each_pair do |mod,v|
+		next unless e[:state] == mod
+		p [:MOD,mod]
+		v.each_pair do |key,v|
+		  if key == e[:detail]
+		    send *v
+		    return e
+		  end
+		end
+	  end
+	  
+	  return e
+	end
+	
+	def on_key_release(evt)
+	
+	end
+	
+	def on_button_press(evt)
+	
+	end
+	
+	def on_button_release(evt)
+	
+	end
+	
+	def on_configure_notify(evt)
+      if c = find_client_by_window(evt[:event])
+	    c.on_configure_notify(evt)
+	  end	
+	end
+	
+	def on_configure_request(evt)
+      if c = find_client_by_window(evt[:window])
+	    c.on_configure_request(evt)
+	  end
+	end
+	
+	def on_map_request(evt)
+      if c = find_client_by_window(evt[:window])
+	    c.on_map_request(evt)
+	  else 
+	    manage(evt[:window]) 
+	  end
+	end
+	
+	def on_unmap_notify(evt)
+	  if c = find_client_by_window(evt[:window])
+	    c.on_unmap_notify(evt)
+	  end
+	end
+	
+	def on_enter_notify(evt)
+	  if c = find_client_by_window(evt[:event])
+	    c.on_enter_notify(evt)
+  	  end
+	end
+	
+	def on_leave_notify(evt)
+	  if c = find_client_by_window(evt[:event])
+	    c.on_leave_notify(evt)
+	  end
+	end
+	
+	def on_client_message(evt)
+	
+	end   
+	
+	def on_destroy_notify evt
+      unmanage(evt[:event])	
+	end 
   end
 
   # Base for reparenting window managers  

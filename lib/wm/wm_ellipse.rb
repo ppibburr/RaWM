@@ -44,20 +44,6 @@ module WM
   # And the topmost transient is focused
   class EllipseWM < WM::ReparentingManager
     include WM::StandardWM
-  
-    [
-      # Mask                   Sym   Action  Arguments (optional)
-      # Alt1                   # Enter
-      [WM::KeyMods[:MOD1],     36,   :on_swap_key_press],            # swap the focused window into 'master'
-                               # F
-      [WM::KeyMods[:MOD1],     41,   :on_fullscreen_key_press],      # toggle fullscreen
-                               # Left
-      [WM::KeyMods[:MOD1],     113,  :on_swap_previous_key_press],   # swap focused 1 position prior
-                               # Right
-      [WM::KeyMods[:MOD1],     114,  :on_swap_next_key_press],       # swap focused 1 position next
-    ].each do |key_bind|
-      add_key_binding(*key_bind)
-    end
    
     attr_accessor :inactive_client_width,:inactive_client_height,:active_client_width,:active_client_height
    
@@ -70,17 +56,23 @@ module WM
       
       # 'master' client geometry
       @active_client_width = 800
-      @active_client_height = 530    
+      @active_client_height = 530
+      
+      [
+        # Mask     Sym     Action              Arguments (optional)
+        # Alt      Enter
+        [:Alt,     :Enter, :on_swap_key_press],            # swap the focused window into 'master'
+        #           f
+        [:Alt,     :f,     :on_fullscreen_key_press],      # toggle fullscreen
+        #          Left
+        [:Alt,     :Left,  :on_swap_previous_key_press],   # swap focused 1 position prior
+        #          Right
+        [:Alt,     :Right, :on_swap_next_key_press],       # swap focused 1 position next
+      ].each do |key_bind|
+        add_key_binding(*key_bind)
+      end          
     end
     
-    def init
-      super
-      GrabKeys.each do |k|
-        XCB::grab_key(connection, 1, screen[:root], k[0], k[1], XCB::GRAB_MODE_ASYNC, XCB::GRAB_MODE_ASYNC);
-      end
-      XCB::flush connection
-    end
-   
     def manage w
       super
       
@@ -101,10 +93,6 @@ module WM
 
       # no update neccessary
       return if c and c.get_transient_for()
-
-      # Reset positioning
-      @current_degree = 0
-      @offset = 0
       
       if bool
         # The 'master' is removed

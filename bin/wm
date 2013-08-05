@@ -60,17 +60,21 @@ class MyWM < WM::EllipseWM
   def self.add_startup_task *task
     STARTUP << task
   end
-    
-  #
-  # Key bindings
-  #
+   
+   
+  def initialize *o
+    super  
+	#
+	# Key bindings
+	#
 
-  #                Alt1               t  
-  add_key_binding WM::KeyMods[:MOD1], 28, :spawn, "x-terminal-emulator" # launch terminal
-  #                Alt1               w
-  add_key_binding WM::KeyMods[:MOD1], 25, :spawn, "x-www-browser"       # launch web browser
-  #                                   p
-  add_key_binding WM::KeyMods[:MOD1], 58, :spawn, "dmenu_run"           # launch dmenu launcher  
+	#               Alt1   t  
+	add_key_binding :Alt, :t, :spawn, "x-terminal-emulator" # launch terminal
+	#                      w
+	add_key_binding :Alt, :w, :spawn, "x-www-browser"       # launch web browser
+	#                      p
+	add_key_binding :Alt, :p, :spawn, "dmenu_run"           # launch dmenu launcher  
+  end
 end
 
 begin

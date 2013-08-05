@@ -32,7 +32,7 @@ module WM
       end     
     
       # We've been entered (moused over)
-      def on_enter e
+      def on_enter_notify e
         # Ensure the 'master' is one below us
         a = manager.get_active_client()
         a.raise() if a unless get_transient_for() # unless we are a transient
@@ -47,7 +47,7 @@ module WM
       end
       
       # Bye Bye Mouse
-      def on_leave e
+      def on_leave_notify e
         # remove the border
         remove_active_hint()
       end

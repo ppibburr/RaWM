@@ -3,15 +3,14 @@ require File.expand_path(File.join(File.dirname(__FILE__),"standard_client.rb"))
 
 module WM
   module StandardWM
-    GrabKeys = WM::Manager::GrabKeys
-    
-    GrabKeys.push(*[
-      # Alt1+Shift             # f 
-      [WM::KeyMods[:AltShift], 41,   :on_force_focus_key_press],     # Force client under mouse to be focused             
-                               # k      
-      [WM::KeyMods[:AltShift], 45,   :on_force_kill_key_press],      # Force client to be destroyed           
+    def initialize *o
+      super
 
-    ])
+      #               Alt1+Shift  f 
+      add_key_binding :AltShift, :f, :on_force_focus_key_press     # Force client under mouse to be focused             
+      #                           k      
+      add_key_binding :AltShift, :k, :on_force_kill_key_press      # Force client to be destroyed           
+    end
    
     def manage_transient(w,tw)
       if !(c=find_client_by_window(tw))

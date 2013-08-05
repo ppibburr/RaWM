@@ -24,96 +24,65 @@ module WM
     def destroy
       get_window.destroy()
 
-        if manager.clients.index(self)
+      if manager.clients.index(self)
         manager.clients.delete(self)
       end
     end
 
     attr_reader :frame_window
     def setup
-    if manager.is_reparenting?
+      if manager.is_reparenting?
         wgeom = window.geom()
-      geom = [wgeom[:x],wgeom[:y],wgeom[:width],wgeom[:height],0]    
+        geom = [wgeom[:x],wgeom[:y],wgeom[:width],wgeom[:height],0]    
+      
+        CLib.free wgeom.to_ptr
       
         @frame_window = Window.new(manager.connection,manager.create_window(*geom))
 
-      cookie = window.reparent_checked(frame_window, 0, 0);
-      error = XCB::request_check(manager.connection,cookie)  
-          XCB::flush(manager.connection);
-    end
+        cookie = window.reparent_checked(frame_window, 0, 0);
+        error = XCB::request_check(manager.connection,cookie)  
+        XCB::flush(manager.connection);
+      end
     
-    cookie = XCB::intern_atom(manager.connection, 1, 12,"WM_PROTOCOLS");
-    reply = XCB::intern_atom_reply(manager.connection, cookie, nil);
+      cookie = XCB::intern_atom(manager.connection, 1, 12,"WM_PROTOCOLS");
+      reply = XCB::intern_atom_reply(manager.connection, cookie, nil);
     
-    cookie2 = XCB::intern_atom(manager.connection, 0, 16, "WM_DELETE_WINDOW");
-    reply2 = XCB::intern_atom_reply(manager.connection, cookie2, nil);
+      cookie2 = XCB::intern_atom(manager.connection, 0, 16, "WM_DELETE_WINDOW");
+      reply2 = XCB::intern_atom_reply(manager.connection, cookie2, nil);
     
-    ptr = FFI::MemoryPointer.new(:int)
-    ptr.write_int reply2[:atom]
+      ptr = FFI::MemoryPointer.new(:int)
+      ptr.write_int reply2[:atom]
     
-    XCB::change_property(manager.connection, 0, window.id, reply[:atom], 4, 32, 1,ptr); 
-    XCB::flush(manager.connection);
+      XCB::change_property(manager.connection, 0, window.id, reply[:atom], 4, 32, 1,ptr); 
+      XCB::flush(manager.connection);
 
-        on_map_request(nil)
-        self.raise()
+      on_map_request(nil)
+      self.raise()
          
-        XCB::set_input_focus(manager.connection, 1, window.id, 0);
+      XCB::set_input_focus(manager.connection, 1, window.id, 0);
       XCB::flush(manager.connection);# p error[:error_code];exit                                      
     end
    
-      def set_transient(w)
-        @transient_for = w
-      end
+    def set_transient(w)
+      @transient_for = w
+    end
       
-      def get_transient_for
-        @transient_for
+    def get_transient_for
+      @transient_for
+    end
+    
+    def transients
+      manager.clients.find_all do |c|
+        tc = c.get_transient_for()
+        tc == self
       end
-    
-      def transients
-        manager.clients.find_all do |c|
-          tc = c.get_transient_for()
-          tc == self
-        end
-      end    
-    
-      def add_transient w
-        manager.clients << c=manager.class.client_class.new(w,manager)
-
-        c.set_transient(self)
-        return c
-      end
-        
-    
-    # when mouse enters
-    def on_enter(e)
-    
-    end
-    
-    # when mouse left
-    def on_leave(e)
-
-    end
-    
-    # configure notify
-    def on_configure_notify(e)
-    
-    end
-    
-    # configure request
-    def on_configure_request(e)
-    
     end    
     
-    # map request
-    def on_map_request e
-      get_window().map
-      if manager.is_reparenting?()
-        window.map()
-      end
-    end
-    
-    def on_unmap_notify(e)
-      get_window().unmap()
+    def add_transient w
+      manager.clients << c=manager.class.client_class.new(w,manager)
+
+      c.set_transient(self)
+      return c
     end
     
     #
@@ -161,5 +130,41 @@ module WM
     def get_window
       manager.is_reparenting?() ? frame_window : window
     end
+    
+    #
+    # Events
+    #
+    
+    # when mouse enters
+    def on_enter_notify(e)
+    
+    end
+    
+    # when mouse left
+    def on_leave_notify(e)
+
+    end
+    
+    # configure notify
+    def on_configure_notify(e)
+    
+    end
+    
+    # configure request
+    def on_configure_request(e)
+    
+    end    
+    
+    # map request
+    def on_map_request e
+      get_window().map
+      if manager.is_reparenting?()
+        window.map()
+      end
+    end
+    
+    def on_unmap_notify(e)
+      get_window().unmap()
+    end    
   end
 end
