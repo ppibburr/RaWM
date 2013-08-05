@@ -61,7 +61,6 @@ class MyWM < WM::EllipseWM
     STARTUP << task
   end
    
-   
   def initialize *o
     super  
 	#
@@ -78,6 +77,9 @@ class MyWM < WM::EllipseWM
 end
 
 begin
+  # Use the arrow instead of the X
+  MyWM::add_startup_task :spawn,"xsetroot -cursor_name  left_ptr"
+
   m = MyWM.new(WM::SCREEN,WM::CONNECTION)
 
   Signal.trap("INT") do
@@ -86,7 +88,7 @@ begin
   
   if ARGV[0] == "--status"
     path = File.expand_path(File.join(File.dirname(__FILE__),"..","scripts","statusbar.rb"))
-    MyWM.add_startup_task :spawn,"ruby #{path}"
+    MyWM::add_startup_task :spawn,"ruby #{path}"
   end
 
   m.main

@@ -68,6 +68,12 @@ module WM
         [:Alt,     :Left,  :on_swap_previous_key_press],   # swap focused 1 position prior
         #          Right
         [:Alt,     :Right, :on_swap_next_key_press],       # swap focused 1 position next
+        #
+        [:AltShift,:Right, :on_focus_next_key_press],      # move focus to next orbital
+        #
+        [:AltShift,:Left,  :on_focus_previous_key_press],  # move focus to next orbital
+        #
+        [:Alt,     :Space, :on_focus_orbit_key_press]
       ].each do |key_bind|
         add_key_binding(*key_bind)
       end          
@@ -119,8 +125,35 @@ module WM
       end
     end
     
+    # Throws focus into the orbital field
+    def on_focus_orbit_key_press
+      c = clients.find do |q| q != @active end
+      
+      if c
+        c.raise 
+        c.focus
+        
+        x,y = c.rect[2..3].map do |q| q * 0.5 end
+        XCB::warp_pointer(connection, XCB::NONE, c.get_window.id, 0, 0, 0, 0, x, y);          
+      end
+    end
+    
+    # If 'master' is focused, swaps orbital position 1 and 'master'
+    # Else if an orbital is focused that orbital becomes 'master'
     def on_swap_key_press
+      return if clients.length == 1
+    
       if c=get_focused_client()
+        if c == @active
+          c = clients.find do |q|
+            q != c
+          end
+        
+        # we allow this cuz sometimes bugs happen
+        else
+          c = @active
+        end
+        
         set_active(c) unless c.get_transient_for()
         @active.raise()
         @active.focus()
@@ -169,7 +202,55 @@ module WM
           XCB::warp_pointer(connection, XCB::NONE, c.get_window.id, 0, 0, 0, 0, x, y);          
         end
       end
-    end    
+    end
+   
+    def on_focus_previous_key_press()
+      if c=get_focused_client()
+        return if c == @active
+        
+        ica = clients.find_all do |qc| qc != @active end
+        q   = nil
+        i   = ica.index(c)
+        
+        return if ica.length == 1
+        
+        if i == 0
+          q=ica.last
+        else
+          q=ica[i-1]
+        end
+        
+        q.raise()
+        q.focus()
+        
+        x,y = q.rect[2..3].map do |qc| qc * 0.5 end
+        XCB::warp_pointer(connection, XCB::NONE, q.get_window.id, 0, 0, 0, 0, x, y);                  
+      end
+    end        
+    
+    def on_focus_next_key_press()
+      if c=get_focused_client()
+        return if c == @active
+        
+        ica = clients.find_all do |qc| qc != @active end
+        q   = nil
+        i   = ica.index(c)
+        
+        return if ica.length == 1
+        
+        if i == ica.length - 1
+          q=ica[0]
+        else
+          q=ica[i+1]
+        end
+        
+        q.raise()
+        q.focus()
+        
+        x,y = q.rect[2..3].map do |qc| qc * 0.5 end
+        XCB::warp_pointer(connection, XCB::NONE, q.get_window.id, 0, 0, 0, 0, x, y);                  
+      end
+    end
     
     # Gets the client at point x,y
     # Order of matching is as follows:
