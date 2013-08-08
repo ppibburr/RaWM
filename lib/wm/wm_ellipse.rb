@@ -95,7 +95,7 @@ module WM
       bool = (c=find_client_by_window(w)) == @active
       bool = !!@active and bool
       
-      super
+      return unless super
 
       # no update neccessary
       return if c and c.get_transient_for()
@@ -355,9 +355,12 @@ module WM
         a = c
       end
       
-      clients.find_all do |c| c!= a end.each_with_index do |c,i|
+      i = -1
+      clients.find_all do |c| c!= a end.each do |c|
         next if c == a
         next if c.get_transient_for()
+        
+        i += 1
         
         n_rect = get_rect_for_client(i)
         

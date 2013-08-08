@@ -91,7 +91,7 @@ class MultiDelegator
   end
 end
 
-log_file = File.open(File.join(File.dirname(__FILE__),"..","..","debug.log"), "a")
+log_file = File.open(File.join("#{ENV['HOME']}","debug.log"), "a")
 WM::LOG = Logger.new MultiDelegator.delegate(:write, :close).to(STDOUT, log_file)
 WM::LOG.level = Logger::DEBUG
 

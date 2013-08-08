@@ -216,7 +216,12 @@ module WM
     # @param Integer, w, the window id to find the client for
     def unmanage(w)
       c = find_client_by_window w
-      c.destroy() if c
+      if c
+        c.destroy()
+        return true
+      else
+        return false
+      end
     end
     
     def add_key_binding m,k,*o
@@ -353,7 +358,7 @@ module WM
 	end
 	
 	def on_configure_notify(evt)
-      if c = find_client_by_window(evt[:event])
+      if c = find_client_by_window(evt[:window])
 	    c.on_configure_notify(evt)
 	  end	
 	end
@@ -395,7 +400,15 @@ module WM
 	end   
 	
 	def on_destroy_notify evt
-      unmanage(evt[:event])	
+	  WM::log :debug do
+	    w      = evt[:window]
+	    client = find_client_by_window(w)
+	    name   = `xdotool getwindowname #{w}`
+	    
+	    "in on_destoy_notify(), Window: #{w}, Name: #{name}, Client: #{client}"
+	  end
+	  
+      unmanage(evt[:window])	
 	end 
   end
 
