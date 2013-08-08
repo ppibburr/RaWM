@@ -72,7 +72,7 @@ module WM
       wins.read_array_of_int(tree_c_len)
     end     
   
-    attr_accessor :clients,:screen,:connection
+    attr_accessor :clients,:screen,:connection,:key_bindings
     def initialize screen,conn
       @screen = screen
       @connection = conn

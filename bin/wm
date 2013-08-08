@@ -19,6 +19,7 @@ class MyWM < WM::EllipseWM
   # usefull in Xnest or Xephyr
   extend WM::DebugWM
   
+  # Multiple WorkSpace support
   include WM::EllipseWS
   
   class self::Client < WM::EllipseWM::Client
@@ -106,6 +107,11 @@ begin
   if ARGV.index('--swap-alt-ctrl')
     MyWM.swap_alt_ctrl()
   end
+  
+  print_key_bindings = false
+  if ARGV.index('--print-key-bindings')
+    print_key_bindings = true
+  end
 
   # Use the arrow instead of the X
   MyWM::add_startup_task :spawn,"xsetroot -cursor_name  left_ptr"
@@ -118,6 +124,20 @@ begin
   
   m = MyWM.new(WM::SCREEN,WM::CONNECTION)
 
+  if print_key_bindings
+    m.key_bindings.each_pair do |mod,vv|
+      mod = WM::KeyMap.find_symbol_for(mod)
+      
+      vv.each_pair do |key,v|
+        key = WM::KeyMap.find_symbol_for(key)
+      
+        p [mod,key].push(*v)
+      end
+    end
+    
+    exit(0)  
+  end
+ 
   Signal.trap("INT") do
     m.on_abort(1)
   end
