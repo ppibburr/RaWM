@@ -93,7 +93,7 @@ module WM
     
     # @return Array<Client>, of clients whose rect contains point x,y
     def clients_at x,y
-      clients.find_all do |c|
+      viewable_clients.find_all do |c|
         cx,cy,w,h = c.rect
         (x >= cx and x <= cx+w) and (y >= cy and y <= cy + h)
       end

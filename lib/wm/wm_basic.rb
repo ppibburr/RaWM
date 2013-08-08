@@ -212,6 +212,12 @@ module WM
       end
     end
     
+    def viewable_clients
+      clients.find_all do |c|
+        c.get_window.is_mapped?
+      end
+    end
+    
     # Find the client for window w and call it's destroy() method
     # @param Integer, w, the window id to find the client for
     def unmanage(w)

@@ -95,6 +95,20 @@ module WM
       XCB::flush(connection);
     end  
     
+    def get_attributes
+      attributesCookie = XCB::get_window_attributes(connection, id);
+      attributes       = XCB::get_window_attributes_reply(connection, attributesCookie, nil);    
+    end
+    
+    def is_mapped?
+      atts = get_attributes()
+      state = atts[:map_state]
+      
+      CLib::free(atts.to_ptr)
+      
+      return state == 2
+    end
+    
     # ...
     def configure *o
       XCB::configure_window(connection,id,*o)

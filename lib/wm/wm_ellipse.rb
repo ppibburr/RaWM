@@ -73,7 +73,9 @@ module WM
         #
         [:AltShift,:Left,  :on_focus_previous_key_press],  # move focus to next orbital
         #
-        [:Alt,     :Space, :on_focus_orbit_key_press]
+        [:Alt,     :Space, :on_focus_orbit_key_press],     # focus the first orbital
+        [:AltShift,:Up,    :on_grow_key_press],            # increase the master size
+        [:AltShift,:Down,  :on_shrink_key_press]
       ].each do |key_bind|
         add_key_binding(*key_bind)
       end          
@@ -83,11 +85,14 @@ module WM
       super
       
       # transients don't get 'master'
-      c = find_client_by_window(w)  
-      return if c.get_transient_for()
+      if c = find_client_by_window(w)  
+        return(c) if c.get_transient_for()
       
-      # new client becomes the 'master'
-      set_active(clients.last,true)  
+        # new client becomes the 'master'
+        set_active(c,true)
+        
+        return c
+      end  
     end
     
     def unmanage(w)
@@ -132,7 +137,7 @@ module WM
     
     # Throws focus into the orbital field
     def on_focus_orbit_key_press
-      c = clients.find do |q| q != @active end
+      c = viewable_clients.find do |q| q != @active end
       
       if c
         c.raise 
@@ -145,11 +150,11 @@ module WM
     # If 'master' is focused, swaps orbital position 1 and 'master'
     # Else if an orbital is focused that orbital becomes 'master'
     def on_swap_key_press
-      return if clients.length == 1
+      return if viewable_clients.length == 1
     
       if c=get_focused_client()
         if c == @active
-          unless c = clients.find do |q| q != c end
+          unless c = viewable_clients.find do |q| q != c end
             # we allow this cuz sometimes bugs happen
             c = @active
           end
@@ -166,7 +171,7 @@ module WM
     
     def on_swap_next_key_press()
       if c=get_focused_client()
-        ica = clients.find_all do |q| q != @active end
+        ica = viewable_clients.find_all do |q| q != @active and !q.is_transient? end
         if i1 = ica.index(c)
           sc = nil
           if i1 < ica.length-1
@@ -187,7 +192,7 @@ module WM
     
     def on_swap_previous_key_press()
       if c=get_focused_client()
-        ica = clients.find_all do |q| q != @active end
+        ica = viewable_clients.find_all do |q| q != @active and !q.is_transient? end
         if i1 = ica.index(c)
           sc = nil
           if i1 > 0
@@ -209,7 +214,7 @@ module WM
       if c=get_focused_client()
         return if c == @active
         
-        ica = clients.find_all do |qc| qc != @active end
+        ica = viewable_clients.find_all do |qc| qc != @active and !qc.is_transient? end
         q   = nil
         i   = ica.index(c)
         
@@ -232,7 +237,7 @@ module WM
       if c=get_focused_client()
         return if c == @active
         
-        ica = clients.find_all do |qc| qc != @active end
+        ica = viewable_clients.find_all do |qc| qc != @active and !qc.is_transient? end
         q   = nil
         i   = ica.index(c)
         
@@ -250,6 +255,42 @@ module WM
         q.take_pointer()
      end
     end
+    
+    def on_grow_key_press
+      rect = get_active_rect()
+      
+      w,h = rect[2..3]
+      
+      pct = w / h.to_f
+      
+      h = h + 4
+      
+      w = (h*pct).to_i
+      
+      @active_client_width  = w
+      @active_client_height = h
+      
+      @active.set_rect(*get_active_rect())
+    end
+    
+    def on_shrink_key_press
+      rect = get_active_rect()
+      
+      w,h = rect[2..3]
+      
+      pct = w / h.to_f
+      
+      h = h - 4
+      
+      return if h < (@min_active_client_height ||= 400)
+      
+      w = (h*pct).to_i
+      
+      @active_client_width  = w
+      @active_client_height = h
+      
+      @active.set_rect(*get_active_rect())
+    end    
     
     def on_key_press e
       WM::log :debug do
@@ -286,7 +327,7 @@ module WM
       return @active if (qx >= x and qx <= x1) and (qy >= y and qy <= y1)
 
       # an orbital or nil
-      if hit=clients.find do |c|
+      if hit=viewable_clients.find do |c|
       
           x,y,w,h = c.rect
           x1 = x + w
@@ -344,7 +385,7 @@ module WM
     # @param WM::Client a, the client to be the 'master', defaults to newest managed client
     def draw a = nil
       bool = !!a
-      a = a ? a : clients.last
+      a = a ? a : viewable_clients.last
       return unless a
       
       WM.log :debug do
@@ -356,7 +397,7 @@ module WM
       end
       
       i = -1
-      clients.find_all do |c| c!= a end.each do |c|
+      viewable_clients.find_all do |c| c!= a end.each do |c|
         next if c == a
         next if c.get_transient_for()
         

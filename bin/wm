@@ -19,7 +19,11 @@ class MyWM < WM::EllipseWM
   # usefull in Xnest or Xephyr
   extend WM::DebugWM
   
+  include WM::EllipseWS
+  
   class self::Client < WM::EllipseWM::Client
+    include WM::EllipseWS::Client 
+    
     # Blue looks nice
     BORDER = WM::BLUE # the focused window border color
     
@@ -43,6 +47,10 @@ class MyWM < WM::EllipseWM
     def focus
       super
       
+      WM::log :debug do
+        "in focus(), window is_mapped? : #{get_window.is_mapped?}"
+      end
+      
       File.open(STATUS,"w") do |f|
         f.puts "#{window.id}"
       end
@@ -54,6 +62,7 @@ class MyWM < WM::EllipseWM
     at_startup()
   end
   
+  # Do the stuff to do at startup (after exisiting windows are managed)
   def at_startup()
     STARTUP.each do |t|
       send *t
@@ -62,22 +71,28 @@ class MyWM < WM::EllipseWM
   
   STARTUP = []
   
+  # Add something to the statup list
   def self.add_startup_task *task
     STARTUP << task
   end
    
   def initialize *o
     super  
+    
+    @active_client_width = 950
+    @active_client_height += 70
+    
 	#
 	# Key bindings
 	#
 
-	#               Alt1   t  
-	add_key_binding :Alt, :t, :spawn, "x-terminal-emulator" # launch terminal
-	#                      w
-	add_key_binding :Alt, :w, :spawn, "x-www-browser"       # launch web browser
-	#                      p
-	add_key_binding :Alt, :p, :spawn, "dmenu_run"           # launch dmenu launcher  
+	add_key_binding :Alt, :t,    :spawn, "x-terminal-emulator"      # launch terminal
+	add_key_binding :Alt, :w,    :spawn, "x-www-browser"            # launch web browser
+	add_key_binding :Alt, :p,    :spawn, "dmenu_run"                # launch dmenu launcher  
+	add_key_binding :Alt, :m,    :spawn, "amixer set Master mute"   # mute volume
+	add_key_binding :Alt, :u,    :spawn, "amixer set Master unmute" # unmute volume	
+	add_key_binding :Alt, :Up,   :spawn, "amixer set Master 2+"     # raise volume by 2	
+	add_key_binding :Alt, :Down, :spawn, "amixer set Master 2-"     # lower volume by 2			
   end
 end
 

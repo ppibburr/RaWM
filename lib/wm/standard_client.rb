@@ -42,6 +42,14 @@ module WM
         t.set_rect x,y,w,h
       end
       
+      def map
+        get_window.map
+      end
+      
+      def unmap
+        get_window.unmap
+      end
+      
       def raise
         get_window.raise()
         
@@ -79,6 +87,10 @@ module WM
       #
       # states
       #
+      
+      def is_transient?
+        !!get_transient_for()
+      end
       
       def is_fullscreen?()
         x,y,w,h = rect
