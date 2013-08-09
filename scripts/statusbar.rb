@@ -8,10 +8,16 @@ i3s  = IO::popen("i3status")
 dzen = IO::popen("dzen2 -ta l","w")
 
 while s=i3s.gets
-  active = File.open("#{ENV['HOME']}/.mywm_status.txt","r").read.strip
+  buff = File.open("#{ENV['HOME']}/.wm_status.txt","r").read.strip
+  active = (buff.scan(/focused\: ([0-9]+)/)[0]||=[])[0]
   active = `xdotool getwindowname #{active}`.strip
-  active = (0..55).map do |i|
+  active = (0..35).map do |i|
     active[i] || " "
   end.join
-  dzen.puts "#{active} | #{s}"
+  workspace = (buff.scan(/workspace\: ([0-9]+)/)[0]||=[])[0]
+  ws_list = [1,2,3,4].map do |q|
+    q=q.to_s
+    q==workspace ? "[#{q}]" : q
+  end.join(" ")
+  dzen.puts "#{active} | #{ws_list} | #{s}"
 end

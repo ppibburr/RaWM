@@ -13,7 +13,7 @@ module WM
     Space_3 = 4
     Space_4 = 8
     
-    Space_ALL = 16
+    Space_ALL = 1|2|4|8
     
     # Sets the current WorkSpace
     def set_workspace mask = Space_1

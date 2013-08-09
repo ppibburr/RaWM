@@ -13,6 +13,18 @@ require File.join(ENV["XCB_PATH"],"lib","xcb.rb")
 require File.expand_path(File.join(File.dirname(__FILE__),"..","lib","wm.rb"))
 require File.expand_path(File.join(File.dirname(__FILE__),"..","lib","wm","fx_fade.rb"))
 
+STATS = "#{ENV['HOME']}/.wm_status.txt"
+
+Status = {:workspace=>1}
+
+def Status.dump(delim="\n")
+  buff = []
+  each_pair do |k,v|
+    buff << "#{k}: #{v}"
+  end
+  return buff.join(delim)
+end
+
 class MyWM < WM::EllipseWM
   # enable some common debug utils
   # ie, swap_alt_ctrl, keybinds with ALT mask become CTRL mask
@@ -40,27 +52,29 @@ class MyWM < WM::EllipseWM
     # Comment the next line to disable composition effects 
     include WM::FX::Fade 
     
-    # We write the focused window id
-    STATUS = "#{ENV['HOME']}/.mywm_status.txt"
-    
-    # overide to update the status file
-    # dzen2 status tool @ /path/to/RaWM/scripts/statusbar.rb (requires xdotool, dzen2 and i3status)
+    # overide to update the status
     def focus
       super
       
-      WM::log :debug do
-        "in focus(), window is_mapped? : #{get_window.is_mapped?}"
-      end
-      
-      File.open(STATUS,"w") do |f|
-        f.puts "#{window.id}"
-      end
+      Status[:focused] = window.id
     end
   end
   
   def manage_existing(*o)
     super
     at_startup()
+  end
+  
+  def on_set_workspace *o
+    super
+    Status[:workspace] = get_workspace_index() + 1
+  end
+  
+  def on_after_event e
+    super
+    File.open STATS,"w" do |f|
+      f.puts Status.dump()
+    end
   end
   
   # Do the stuff to do at startup (after exisiting windows are managed)
@@ -121,6 +135,9 @@ begin
   
   # Start the composition manager
   MyWM::add_startup_task :spawn,"compton -cCfF"
+  
+  Status[:width]  = WM::SCREEN[:width_in_pixels]
+  Status[:height] = WM::SCREEN[:height_in_pixels]
   
   m = MyWM.new(WM::SCREEN,WM::CONNECTION)
 
