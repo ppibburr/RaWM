@@ -19,9 +19,11 @@ Status = {:workspace=>1}
 
 def Status.dump(delim="\n")
   buff = []
+  
   each_pair do |k,v|
     buff << "#{k}: #{v}"
   end
+  
   return buff.join(delim)
 end
 
@@ -66,15 +68,19 @@ class MyWM < WM::EllipseWM
   end
   
   def on_set_workspace *o
-    super
+    ret = super
+    
     Status[:workspace] = get_workspace_index() + 1
+    
+    return ret
   end
   
   def on_after_event e
-    super
     File.open STATS,"w" do |f|
       f.puts Status.dump()
     end
+    
+    return super
   end
   
   # Do the stuff to do at startup (after exisiting windows are managed)
