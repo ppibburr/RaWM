@@ -17,9 +17,9 @@ module WM
     
     # Sets the current WorkSpace
     def set_workspace mask = Space_1
-      @workspace = mask
-    
       on_set_workspace mask
+      
+      @workspace = mask      
       
       mask
     end
@@ -31,14 +31,21 @@ module WM
         c.get_workspace & mask > 0
       end
       
+      WM::log :debug do
+        "in on_set_workspace(), WS: #{get_workspace_index(mask)}, clients: "+show.map do |c| c.get_window() end.join(" | ")
+      end
+      
       clients.find_all do |c|
-        !show.index(c)
+        !show.index(c) and c.get_workspace() & get_workspace() > 0
       end.each do |c|
         c.store :map_state,c.get_window.is_mapped?
         c.unmap()
       end
       
       show.each do |c|
+        WM::log :debug do
+          "in on_set_workspace(), Mapping client: #{c.get_window().id}, #{c.store(:map_state)}"
+        end
         c.map() if c.store(:map_state)
       end    
     end
@@ -63,14 +70,14 @@ module WM
     end
     
     # @return Integer|NilClass, the index
-    def get_workspace_index
+    def get_workspace_index mask=get_workspace()
       [
         Space_1,
         Space_2,
         Space_3,
         Space_4
       ].each_with_index do |s,i|
-        if s == get_workspace()
+        if s == mask
           return i
         end
       end    
