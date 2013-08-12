@@ -34,19 +34,25 @@ module WM
       clients.find_all do |c|
         !show.index(c)
       end.each do |c|
-        c.unmap
+        c.store :map_state,c.get_window.is_mapped?
+        c.unmap()
       end
       
       show.each do |c|
-        c.map()
+        c.map() if c.store(:map_state)
       end    
     end
     
-    # Ensure to unmap Client, c
+    # Ensure to unmap Client, c (as well as it's transients)
     # If the Client's workspace mask does not contain the current WorkSpace
     def on_client_set_workspace c
       if c.get_workspace & get_workspace() > 0
       else
+        c.store :map_state, c.get_window().is_mapped?
+        c.transients.each do |t|
+          t.store :map_state,t.get_window().is_mapped?
+          t.unmap()
+        end
         c.unmap()
       end
     end
@@ -82,9 +88,15 @@ module WM
     end
     
     # Sets the workspace of the focused client
+    # If the focus is_transient?, then replace with the get_transient_for()
     def set_client_workspace mask
       c = get_focused_client()
+  
       if c
+        if c.is_transient?
+          c = c.get_transient_for()
+        end
+      
         c.set_workspace mask
         on_client_set_workspace(c)
       end
@@ -125,11 +137,23 @@ module WM
       # mask may contain more than one WorkSpace
       def set_workspace mask
         @workspace = mask
+        transients.each do |t|
+          t.set_workspace mask
+        end
       end
       
       # @return Integer, the client's WorkSpace mask
       def get_workspace
         @workspace ||= Space_NONE
+      end
+      
+      def store key,*o
+        (@store ||= {})
+        unless o.empty?
+          return @store[key] = o.first
+        end
+        
+        return @store[key]
       end
     end
   end

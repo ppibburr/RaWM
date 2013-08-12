@@ -457,16 +457,16 @@ module WM
       xr = 0.5 * (max_width - pad_x - inactive_client_width)
       
       position = (get_placement_angle() * i)
-      if position >= 360
-        i = (position - 360 - get_placement_angle) / get_placement_angle()
+      if position >= 180+360
+        i = (position - 180+360 - get_placement_angle) / get_placement_angle()
         position = (get_placement_angle() + 8) * i
-        if position >= 360-8
-          i = (position - 360 - 8 - get_placement_angle) / get_placement_angle()        
+        if position >= 180+360-8
+          i = (position - 180+360 - 8 - get_placement_angle) / get_placement_angle()        
           position = (get_placement_angle() + 16) * i
         end
       end
       
-      a = position * (Math::PI / 180.0)
+      a = (180+position) * (Math::PI / 180.0)
       
       x = cx + xr * Math.cos(a)
       y = cy + yr * Math.sin(a)

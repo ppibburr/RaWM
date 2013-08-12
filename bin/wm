@@ -100,8 +100,14 @@ class MyWM < WM::EllipseWM
   def initialize *o
     super  
     
-    @active_client_width = 950
-    @active_client_height += 70
+    w = screen[:width_in_pixels] * 0.65
+    h = screen[:height_in_pixels] * 0.75
+    
+    @active_client_width  = w
+    @active_client_height = h
+    
+    @inactive_client_width += 70
+    @inactive_client_height += 70        
     
 	#
 	# Key bindings
@@ -165,8 +171,8 @@ begin
     m.on_abort(1)
   end
   
-  if ARGV[0] == "--status"
-    path = File.expand_path(File.join(File.dirname(__FILE__),"..","scripts","statusbar.rb"))
+  if ARGV.index("--status")
+    path = File.expand_path(File.join(File.dirname(__FILE__),"..","scripts","status.rb"))
     MyWM::add_startup_task :spawn,"ruby #{path}"
   end
 
