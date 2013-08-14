@@ -96,8 +96,16 @@ module WM
     end  
     
     def get_attributes
+      e = FFI::MemoryPointer.new :pointer
+    
       attributesCookie = XCB::get_window_attributes(connection, id);
-      attributes       = XCB::get_window_attributes_reply(connection, attributesCookie, nil);    
+      attributes       = XCB::get_window_attributes_reply(connection, attributesCookie, e); 
+      
+      unless e.get_pointer(0) == FFI::Pointer::NULL
+        return nil
+      end   
+      
+      return attributes
     end
     
     def is_mapped?
@@ -107,6 +115,17 @@ module WM
       CLib::free(atts.to_ptr)
       
       return state == 2
+    end
+    
+    def alive?
+      atts = get_attributes()
+      
+      if atts
+        CLib::free atts.to_ptr
+        return true
+      end
+      
+      return false
     end
     
     # ...

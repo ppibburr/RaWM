@@ -2,6 +2,9 @@ module WM
   # Manages a window
   # Intended to be subclassed
   class Client
+    CLIENT_SELECT_INPUT_EVENT_MASK = XCB::EVENT_MASK_STRUCTURE_NOTIFY |
+                                           XCB::EVENT_MASK_PROPERTY_CHANGE |
+                                           XCB::EVENT_MASK_FOCUS_CHANGE
 
     FRAME_SELECT_INPUT_EVENT_MASK = XCB::EVENT_MASK_STRUCTURE_NOTIFY |
                         XCB::EVENT_MASK_ENTER_WINDOW |
@@ -23,7 +26,7 @@ module WM
 
     def destroy
       get_window.destroy()
-
+      
       if manager.clients.index(self)
         manager.clients.delete(self)
       end

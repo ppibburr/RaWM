@@ -208,7 +208,7 @@ module WM
     # @return Client|NilClass, a Client when w matches the 'window' of the client or its 'frame' (if reparenting)
     def find_client_by_window(w)
       @clients.find do |c|
-        c.window.id == w or (is_reparenting?() and c.frame_window.id == w )
+        c.window.id == w or c.get_window() == w 
       end
     end
     
@@ -221,7 +221,16 @@ module WM
     # Find the client for window w and call it's destroy() method
     # @param Integer, w, the window id to find the client for
     def unmanage(w)
-      c = find_client_by_window w
+      WM::log :debug do
+        "in unmanage(), window->#{w}"
+      end
+      
+      c = find_client_by_window(w)
+    
+      WM::log :debug do
+        "in unmanage(), #{w=c.get_window.id}, #{`xdotool getwindowname #{w}`}"
+      end if c
+      
       if c
         c.destroy()
         return true
@@ -291,7 +300,6 @@ module WM
 		 
 	  when XCB::CONFIGURE_REQUEST
 		evt = XCB::CONFIGURE_REQUEST_EVENT_T.new(evt.to_ptr)
-		  
 		on_configure_request(evt)
 		       
 	  when XCB::MAP_REQUEST
@@ -300,19 +308,19 @@ module WM
 		on_map_request(evt)
 		   
 	  when XCB::CLIENT_MESSAGE 
-		evt = XCB::CLIENT_MESSAGE_EVENT_T.new(evt.to_ptr)
-        on_client_message(evt)
+		  evt = XCB::CLIENT_MESSAGE_EVENT_T.new(evt.to_ptr)
+      on_client_message(evt)
         
 	  when XCB::DESTROY_NOTIFY
-		evt = XCB::DESTROY_NOTIFY_EVENT_T.new(evt.to_ptr)
+		  evt = XCB::DESTROY_NOTIFY_EVENT_T.new(evt.to_ptr)
 
-		on_destroy_notify(evt)  
+		  on_destroy_notify(evt)  
 	  end
 		  
-	  on_after_event(evt)
+    on_after_event(evt)
 	
-	  CLib::free evt.to_ptr 
-	  XCB::flush(connection)    
+    CLib::free evt.to_ptr 
+    XCB::flush(connection)    
     end    
     
     # Called before default event handling
@@ -324,11 +332,22 @@ module WM
       return true
     end
     
+    # Evil.
+    def find_zombies
+      clients.find_all do |c|
+        !c.window.alive?
+      end.each do |c|
+        unmanage(c.get_window())
+      end 
+    end
+    
     # Called after default event handling
     #
     # @param XCB::GENERIC_EVENT_T, e, the event
     def on_after_event(e)
-    
+      unless e[:response_type] == XCB::MOTION_NOTIFY or e[:response_type] == XCB::KEY_PRESS or e[:response_type] == XCB::KEY_RELEASE
+        find_zombies()
+      end
     end
     
     #
@@ -364,13 +383,13 @@ module WM
 	end
 	
 	def on_configure_notify(evt)
-      if c = find_client_by_window(evt[:window])
+    if c = find_client_by_window(evt[:window])
 	    c.on_configure_notify(evt)
 	  end	
 	end
 	
 	def on_configure_request(evt)
-      if c = find_client_by_window(evt[:window])
+    if c = find_client_by_window(evt[:window])
 	    c.on_configure_request(evt)
 	  end
 	end
@@ -406,15 +425,15 @@ module WM
 	end   
 	
 	def on_destroy_notify evt
+    w      = evt[:window]
+  
 	  WM::log :debug do
-	    w      = evt[:window]
-	    client = find_client_by_window(w)
 	    name   = `xdotool getwindowname #{w}`
 	    
-	    "in on_destoy_notify(), Window: #{w}, Name: #{name}, Client: #{client}"
+	    "in on_destoy_notify(), Window: #{w}, Name: #{name}, Client: #{find_client_by_window(w)}"
 	  end
 	  
-      unmanage(evt[:window])	
+    unmanage(w)	
 	end 
   end
 
