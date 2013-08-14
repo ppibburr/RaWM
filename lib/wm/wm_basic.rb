@@ -208,7 +208,7 @@ module WM
     # @return Client|NilClass, a Client when w matches the 'window' of the client or its 'frame' (if reparenting)
     def find_client_by_window(w)
       @clients.find do |c|
-        c.window.id == w or c.get_window() == w 
+        c.window.id == w or c.get_window().id == w 
       end
     end
     
@@ -337,7 +337,7 @@ module WM
       clients.find_all do |c|
         !c.window.alive?
       end.each do |c|
-        unmanage(c.get_window())
+        unmanage(c.get_window().id)
       end 
     end
     
